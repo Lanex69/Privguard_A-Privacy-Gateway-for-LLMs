@@ -1,0 +1,25 @@
+privguard/
+ ├── app/
+ │   ├── main.py
+ │   ├── detector.py
+ │   ├── redactor.py
+ │   ├── llm_client/
+ │   │   ├── azure_openai.py
+ │   │   ├── openai.py
+ │   │   └── base.py
+ │   ├── policy_bridge.py   (calls teammate engine later)
+ │   └── logger_hook.py
+ ├── configs/
+ │   └── settings.example.json
+ ├── tests/
+ └── README.md
+
+
+'''
+Eventually move detectors into pipeline folders:
+redaction_pipeline/
+policy/
+risk/
+logging/
+providers/
+'''
