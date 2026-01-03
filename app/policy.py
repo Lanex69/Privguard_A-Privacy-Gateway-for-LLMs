@@ -1,62 +1,61 @@
+import json
+import os
 from typing import List, Dict
 
-# Define simple policies
-# BLOCK: Stop the request immediately
-# REDACT: Mask the data and send to Cloud
-# LOCAL: Route to a local/private model (Day 3 Feature)
+# Safe Policy Loader (with fallback)
+
+def load_policy_file():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    policy_path = os.path.join(base_dir, "..", "Security", "policy.json")
+
+    try:
+        with open(policy_path, "r") as f:
+            print(f"✅ Policy Engine: Loaded rules from {policy_path}")
+            return json.load(f)
+
+    except Exception as e:
+        print(f"❌ Policy Engine Error: Using fallback defaults. {e}")
+        return {
+            "risk_policies": {},
+            "role_policies": {},
+            "routing_rules": {},
+            "redaction_policy": {}
+        }
+
+POLICY = load_policy_file()
+
+
+# Risk Weights (used only for scoring / comparisons)
+
+RISK_WEIGHT = {
+    "CRITICAL": 100,
+    "HIGH": 75,
+    "MEDIUM": 40,
+    "LOW": 10,
+    "UNKNOWN": 0,
+}
 
 class PolicyEngine:
+
     def __init__(self):
-        # Risk level → numeric weight (for scoring)
-        self.risk_weight = {
-            "CRITICAL": 100,
-            "HIGH": 75,
-            "MEDIUM": 40,
-            "LOW": 10,
-            "UNKNOWN": 0
-        }
-        # Role-based policy rules
-        self.rules = {
+        self.risk_policies = POLICY.get("risk_policies", {})
+        self.role_policies = POLICY.get("role_policies", {})
+        self.routing_rules = POLICY.get("routing_rules", {})
+        self.redaction_policy = POLICY.get("redaction_policy", {})
 
-            # Students should NOT handle sensitive data
-            "student": {
-                "CRITICAL": "BLOCK",   # API keys, passwords, financial, credentials
-                "HIGH": "BLOCK",       # PII, health, unpublished research
-                "MEDIUM": "REDACT",
-                "LOW": "ALLOW"
-            },
-
-            # Researchers are trusted — but secrets are still blocked
-            "researcher": {
-                "CRITICAL": "BLOCK",
-                "HIGH": "REDACT",      # allow but sanitize
-                "MEDIUM": "ALLOW",
-                "LOW": "ALLOW"
-            },
-
-            # Employees / Admins (future-use)
-            "employee": {
-                "CRITICAL": "BLOCK",
-                "HIGH": "REDACT",
-                "MEDIUM": "ALLOW",
-                "LOW": "ALLOW"
-            }
-        }
-
+    # Main Policy Decision Engine
     def evaluate(self, role: str, detections: List[Dict], azure_severity: int):
-        """
-        Decides the action based on the highest risk detected.
-        """
-        role = (role or "student").lower()
-        user_policy = self.rules.get(role, self.rules["student"])
 
-        # Determine highest-risk detection
+        role = (role or "student").lower()
+        role_policy = self.role_policies.get(role, self.role_policies.get("student", {}))
+
+        # Determine highest-risk detected entity
         highest_level = "LOW"
         highest_score = 0
 
         for d in detections:
             lvl = d.get("risk_level", "LOW")
-            score = self.risk_weight.get(lvl, 0)
+            score = RISK_WEIGHT.get(lvl, 0)
 
             if score > highest_score:
                 highest_score = score
@@ -66,25 +65,51 @@ class PolicyEngine:
         if azure_severity >= 4:
             return {
                 "action": "BLOCK",
-                "reason": "AZURE_SAFETY_BLOCK",
+                "route": "NONE",
                 "risk_level": "SAFETY",
-                "risk_score": 100
+                "risk_score": 100,
+                "reason": "Blocked by Azure AI Content Safety"
             }
 
-        # Role policy decision
-        action = user_policy.get(highest_level, "ALLOW")
+        # Get base risk policy from policy.json
 
-        # Special case — confidential / internal ⇒ LOCAL routing (Data Sovereignty)
-        text_markers = ["internal", "confidential", "do not share", "embargo"]
+        risk_policy = self.risk_policies.get(highest_level, {})
+        action = risk_policy.get("action", "ALLOW")
+        route = risk_policy.get("route", "CLOUD_LLM")
+        reason = risk_policy.get("reason", "Policy applied")
 
-        detected_text_blob = str(detections).lower()
+        # Enforce role maximum allowed risk
+        max_allowed = role_policy.get("max_allowed_risk", "LOW")
 
-        if any(marker in detected_text_blob for marker in text_markers):
+        if highest_score > RISK_WEIGHT[max_allowed]:
+            action = "BLOCK"
+            route = "NONE"
+            reason = f"Role '{role}' is not permitted to handle {highest_level} data"
+
+        # Validate allowed routes for role
+        allowed_routes = role_policy.get("allowed_routes", ["CLOUD_LLM"])
+
+        if route not in allowed_routes:
+            # Force SAFE_MODE instead of silently blocking
+            route = "SAFE_MODE"
+            action = "REDACT"
+            reason = "Route restricted for this role — forcing SAFE_MODE"
+
+        # Data Sovereignty Override (Internal / Confidential → LOCAL SAFE MODE)
+        sovereignty_markers = ["internal", "confidential", "embargo", "do not share"]
+        text_blob = str(detections).lower()
+
+        if any(m in text_blob for m in sovereignty_markers):
             if highest_level in ["HIGH", "MEDIUM"]:
-                action = "LOCAL"
+                route = "SAFE_MODE"
+                action = "REDACT"
+                reason = "Data Sovereignty Policy — processed locally (SAFE_MODE)"
 
+        # Final decision output (auditable & explainable)
         return {
-            "action": action,
+            "action": action,          # BLOCK / REDACT / ALLOW
+            "route": route,            # CLOUD_LLM / SAFE_MODE / NONE
             "risk_level": highest_level,
-            "risk_score": highest_score
+            "risk_score": highest_score,
+            "reason": reason
         }

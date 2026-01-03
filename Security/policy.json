@@ -10,8 +10,8 @@
       "reason": "Critical data exposure risk (credentials, private keys, financial identifiers)"
     },
     "HIGH": {
-      "action": "BLOCK",
-      "route": "NONE",
+      "action": "REDACT",
+      "route": "SAFE_MODE",
       "log_level": "WARN",
       "reason": "High risk data detected (PII, confidential, academic, prompt injection)"
     },
