@@ -1,78 +1,118 @@
-# 🛡️ PRIVGUARD — AI Privacy & Security Gateway
+# PrivGuard — AI Privacy & Security Gateway
 
-**PrivGuard is a Firewall for the LLM Era.**
+## Overview
 
-It prevents sensitive university, research, and enterprise data from leaking into public AI models by acting as a **smart proxy gateway** between users and LLMs.
+**PrivGuard is a privacy and security gateway for Large Language Models (LLMs).**
 
-PrivGuard inspects prompts, detects sensitive content, applies role-based security policies, and acts in real-time to:
+It prevents sensitive university, research, and enterprise data from being exposed to public AI models by acting as a **middleware proxy** between users and external LLM APIs (e.g., OpenAI, Azure OpenAI).
 
-✔ **Block** risky requests (e.g., API Keys, PII)  
-✔ **Redact** sensitive fields automatically  
-✔ **Route** data to a secure **Local / On-Prem LLM** (Data Sovereignty Mode)  
-✔ **Allow** safe requests to Cloud LLMs (Azure/OpenAI)
+PrivGuard inspects prompts in real time, detects sensitive content, applies role-based security policies, and enforces appropriate actions before any data reaches an external model.
 
----
-
-## 🎯 The Core Problem
-
-Students and researchers often paste:
-* Internal research drafts
-* Unpublished papers (under embargo)
-* Student records & transcripts
-* Cloud Credentials & API keys
-* Confidential / NDA documents
-
-...into ChatGPT, Gemini, or Copilot without realizing they may:
-❌ Violate institutional privacy policies  
-❌ Expose intellectual property (IP) to external training data  
-❌ Cause accidental data leaks
-
-**PrivGuard acts as the security layer in-between.**
+In essence, **PrivGuard functions as a firewall for the LLM era**.
 
 ---
 
-## ⚙️ How It Works
+## Problem Statement
 
-PrivGuard performs a 3-step security check on every prompt:
+Students, researchers, and employees frequently paste sensitive content into AI tools such as ChatGPT, Copilot, or Gemini without understanding the privacy implications. This includes:
 
-### 🧠 1. Sensitive Data Detection (Regex + NLP)
-Using **Microsoft Presidio** + custom Security Patterns, we detect:
-* **PII:** Emails, phone numbers, addresses
-* **Academic:** Student IDs, transcripts, unpublished research
-* **Secrets:** API keys (`sk-...`, `ghp_...`), passwords, private keys
-* **Enterprise:** Confidential markers, financial data
-* **Attacks:** Prompt injection attempts
+* Unpublished research drafts and papers under embargo
+* Student records, transcripts, and identifiers
+* Confidential or NDA-protected documents
+* Cloud credentials, API keys, and secrets
 
-*Patterns are defined in `Security/patterns.json`.*
+Such behavior can:
 
-### 🛡️ 2. Risk-Aware Policy Engine (RBAC)
-Policies are applied based on the user's role:
-* **Student:** Untrusted. strict blocking of PII and Secrets.
-* **Researcher:** Semi-trusted. PII is redacted; Secrets are blocked.
-* **Employee/Admin:** Custom handling.
+* Violate institutional privacy and compliance policies
+* Expose intellectual property (IP) to third-party systems
+* Cause irreversible data leakage
 
-### 🔀 3. Smart Routing (Hybrid Cloud + Local)
-PrivGuard enforces Data Sovereignty by routing traffic dynamically:
-
-| Data Type | User Role | Action | Destination |
-| :--- | :--- | :--- | :--- |
-| **API Keys / Secrets** | *Any* | **BLOCK** 🚫 | None (Request Rejected) |
-| **"Internal" Research** | Researcher | **ROUTE LOCAL** 🔒 | Local On-Prem LLM |
-| **PII (Email/Phone)** | Student | **BLOCK** 🚫 | None |
-| **PII (Email/Phone)** | Researcher | **REDACT** ✂️ | Cloud LLM (Sanitized) |
-| **Safe Content** | *Any* | **ALLOW** ✅ | Azure OpenAI / Cloud |
+**PrivGuard introduces a mandatory security checkpoint before any AI interaction occurs.**
 
 ---
 
-## 🧩 Architecture (MVP)
+## Core Capabilities
 
-User Prompt → PrivGuard Proxy → Detection Engine → Policy Engine → ( BLOCK | REDACT | LOCAL | CLOUD )
+PrivGuard enforces security controls in real time:
+
+* **Block** high-risk requests (credentials, secrets, critical PII)
+* **Redact** sensitive fields before forwarding requests
+* **Route** sensitive content to a secure local or on-premise LLM (data sovereignty mode)
+* **Allow** low-risk requests to proceed to cloud-based LLMs
 
 ---
 
-## 🧪 Example Behaviors
+## How PrivGuard Works
 
-### 1) Student pastes API Key → BLOCKED
+Every prompt passes through a three-stage security pipeline.
+
+### 1. Sensitive Data Detection
+
+PrivGuard combines **Microsoft Presidio** with custom regular-expression rules to detect:
+
+* **PII**: Emails, phone numbers, addresses, dates of birth
+* **Academic Data**: Student IDs, transcripts, unpublished research
+* **Secrets**: API keys, access tokens, passwords, private keys
+* **Enterprise Data**: Confidential markers, financial identifiers
+* **Abuse Patterns**: Prompt injection and data exfiltration attempts
+
+Detection rules are defined in `security/patterns.json` and loaded dynamically by the detection engine.
+
+---
+
+### 2. Risk-Aware Policy Engine (RBAC)
+
+Detected entities are evaluated using a **risk-aware, role-based policy engine**. Each detection is tagged with a risk level (LOW, MEDIUM, HIGH, CRITICAL), and the highest-risk signal determines enforcement behavior.
+
+Policies are:
+
+* declaratively defined in `security/policy.json`
+* enforced centrally by a Python-based policy engine
+* configurable without backend code changes
+
+The policy engine supports:
+
+* role-based access control (RBAC)
+* risk scoring and prioritization
+* default-deny / fail-safe behavior
+
+---
+
+### 3. Smart Routing and Data Sovereignty
+
+PrivGuard dynamically routes requests based on risk level and policy:
+
+| Data Type                         | User Role  | Action      | Destination      |
+| --------------------------------- | ---------- | ----------- | ---------------- |
+| API keys / credentials            | Any        | Block       | Request rejected |
+| Internal or confidential research | Researcher | Route local | On-prem LLM      |
+| PII (email, phone)                | Student    | Block       | Request rejected |
+| PII (email, phone)                | Researcher | Redact      | Cloud LLM        |
+| Low-risk content                  | Any        | Allow       | Cloud LLM        |
+
+This ensures sensitive data never leaves institutional boundaries.
+
+---
+
+## Architecture (MVP)
+
+```
+User Prompt
+   → PrivGuard Proxy
+   → Detection Engine
+   → Policy Engine
+   → { BLOCK | REDACT | LOCAL | CLOUD }
+```
+
+PrivGuard is middleware infrastructure, not an end-user chatbot.
+
+---
+
+## Example Scenarios
+
+### Student submits API key
+
+Result: Request blocked
 
 ```json
 {
@@ -82,98 +122,97 @@ User Prompt → PrivGuard Proxy → Detection Engine → Policy Engine → ( BLO
   "message": "Request blocked due to security policy."
 }
 ```
-### 2) Researcher pastes Email → REDACT + CLOUD
-
-Input: "Contact me at jane@uni.edu"
-
-Output: "Contact me at [REDACTED:EMAIL]"
-
-(Sent safely to Azure OpenAI)
-
-### 3) Internal Research → ROUTED LOCAL
-
-Input: "CONFIDENTIAL: Draft patent filing for..."
-
-Output: [LOCAL] Processed on-prem. No data left the network.
-
-## 🏗 Tech Stack
-
-- FastAPI (High-performance Async Gateway)
-
-- Microsoft Presidio (NLP-based PII Detection)
-
-- Spacy (en_core_web_md for entity recognition)
-
-- Custom Regex Engine (Pattern matching for specific secrets)
-
-- Role-Based Policy Engine (Python-based logic core)
-
-- Azure AI Content Safety (Upstream toxicity checks)
 
 ---
 
-## ▶ Running PrivGuard
+### Researcher submits email address
 
-1. Environment Setup
-```
-# Create virtual environment
-python -m venv venv
+Result: Redaction and cloud routing
 
-# Activate (Mac/Linux)
-source venv/bin/activate 
-# Activate (Windows)
-.\venv\Scripts\activate
-```
-2. Install Dependencies
+Input:
 
 ```
-pip install -r requirements.txt
-
-# IMPORTANT: Download the NLP model
-python -m spacy download en_core_web_md
+Contact me at jane@uni.edu
 ```
 
-3. Run the Gateway
+Output:
 
 ```
-uvicorn app.main:app --reload
+Contact me at [REDACTED:EMAIL]
 ```
 
-The API will start at: http://127.0.0.1:8000
-
-4. Explore the API
-
-Open your browser to the interactive docs:
-
-👉 http://127.0.0.1:8000/docs
+The sanitized prompt is forwarded to Azure OpenAI.
 
 ---
 
-##  Roadmap
+### Confidential research content
 
-Phase 1: Core Engine (Completed)
+Result: Local routing
 
-✅ Regex & NLP Detection Layer
-✅ Policy Engine (Block/Redact/Route logic)
-✅ API Gateway Implementation
+Input:
 
-Phase 2: Enterprise Features (In Progress)
+```
+CONFIDENTIAL: Draft patent filing for...
+```
 
--  Tamper-proof Audit Logs (SHA-256 Hashing)
--  Security Dashboard (attack report & risk stats)
--  Streamlit Demo UI (Before / After Privacy Mode)
--  Automated Attack Simulation (`attacks.csv`)
--  Policy visualization + approval flows
+Output:
 
----
-
-## 👥 Project Roles
-
-Dev Lead — Gateway Architecture, Routing Logic, Core Engine  
-Security Lead — Threat Intelligence, Regex Patterns, Policy Rules
+```
+Processed locally. No data sent to cloud LLM.
+```
 
 ---
 
-##  License
+## Technology Stack
 
-MIT
+* FastAPI — High-performance asynchronous API gateway
+* Microsoft Presidio — NLP-based PII detection
+* spaCy (`en_core_web_md`) — Entity recognition
+* Custom Regex Engine — Domain-specific pattern detection
+* Python Policy Engine — Role-based access and routing decisions
+* Azure AI Content Safety — Upstream safety moderation
+
+---
+
+## Roadmap
+
+### Phase 1 — Core Engine (Completed)
+
+* Detection layer (Regex + NLP)
+* Risk-aware policy engine (Block / Redact / Route)
+* API gateway implementation
+
+### Phase 2 — Enterprise Features (In Progress)
+
+* Tamper-evident audit logs (hash chaining)
+* Security dashboard (risk trends, attack visibility)
+* Streamlit demo UI (before / after enforcement)
+* Automated attack simulation (`attacks.csv`)
+* Policy visualization and approval workflows
+
+---
+
+## Project Roles
+
+### Dev Lead
+
+* Gateway architecture and API orchestration
+* LLM routing logic (Cloud vs Local)
+* Backend integration and system stability
+
+### Security Lead
+
+* Threat modeling and attack surface analysis
+* Sensitive data taxonomy and detection rules (`patterns.json`)
+* Risk classification and policy specification (`policy.json`)
+* Role-based access control (RBAC) design
+* Data sovereignty and routing justification
+* Privacy-preserving audit and logging strategy
+* Red-team prompt design and abuse simulation
+
+---
+
+## License
+
+MIT License
+
