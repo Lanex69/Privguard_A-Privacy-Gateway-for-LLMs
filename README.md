@@ -105,7 +105,7 @@ User Prompt
 ```
 ### Architecture Diagram
 
-![Architecture](Architecture)
+![Architecture](Architecture/architect_priv1.png)
 
 
 PrivGuard is middleware infrastructure, not an end-user chatbot.
