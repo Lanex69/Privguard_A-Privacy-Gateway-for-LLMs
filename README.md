@@ -99,9 +99,11 @@ This ensures sensitive data never leaves institutional boundaries.
 ```
 User Prompt
    → PrivGuard Proxy
+   → (Optional) Cloud Content Safety
    → Detection Engine
    → Policy Engine
-   → { BLOCK | REDACT | LOCAL | CLOUD }
+   → Enforcement { BLOCK | REDACT | LOCAL | CLOUD }
+   → Tamper-Evident Audit Log
 ```
 ### Architecture Diagram
 
@@ -186,13 +188,19 @@ Processed locally. No data sent to cloud LLM.
 * Risk-aware policy engine (Block / Redact / Route)
 * API gateway implementation
 
-### Phase 2 — Enterprise Features (In Progress)
+### Phase 2 — Enterprise Features (Completed)
 
 * Tamper-evident audit logs (hash chaining)
 * Security dashboard (risk trends, attack visibility)
-* Streamlit demo UI (before / after enforcement)
-* Automated attack simulation (`attacks.csv`)
+* Streamlit demo UI (live inspection, enforcement outcomes)
+* Automated Red-Team Attack Suite (`attacks.csv`)
+
+### Phase 3 — Enterprise Expansion (Planned)
+
 * Policy visualization and approval workflows
+* Dataset-level scanning (for pre-training sanitization)
+* MLOps pipeline integration (CI/CD gating)
+* Differential privacy & synthetic data routing (research track)
 
 ---
 

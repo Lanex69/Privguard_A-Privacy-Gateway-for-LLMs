@@ -116,7 +116,7 @@ class PolicyEngine:
         # (Only for sensitive data, NOT attacks)
         allowed_routes = role_policy.get("allowed_routes", ["CLOUD_LLM"])
 
-        if route not in allowed_routes:
+        if action != "BLOCK" and route not in allowed_routes:
             route = "SAFE_MODE"
             action = "REDACT"
             reason = "Route restricted for this role — forcing SAFE_MODE"
