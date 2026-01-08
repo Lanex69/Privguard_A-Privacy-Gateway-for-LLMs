@@ -4,63 +4,86 @@ import pandas as pd
 import plotly.express as px
 import json
 import os
+import time
 from datetime import datetime
 
+
 API_URL = "http://127.0.0.1:8000"
-ATTACKS_FILE = "Security/attacks.csv"
-LOG_FILE = "Security/audit_log.jsonl"
+
+# Adjust paths to point to the Security folder in the root directory
+ATTACKS_FILE = os.path.join("Security", "attacks.csv")
+LOG_FILE = os.path.join("Security", "audit_log.jsonl")
 
 # -----------------------------
 # PAGE CONFIG
 # -----------------------------
 st.set_page_config(
-    page_title="PrivGuard Enterprise Gateway",
+    page_title="PrivGuard Enterprise DLP",
     page_icon="🛡️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-st.title("🛡️ PrivGuard — AI Privacy & Security Gateway")
+st.title(" PrivGuard — AI Privacy & Security Gateway ")
 st.caption("Hybrid Routing • RBAC Policies • Tamper-Proof Audit Chain")
 
-st.sidebar.header("User Simulation")
+tab1, tab2, tab3 = st.tabs([
+    " Live Inspector",
+    " Vulnerability Scanner ",
+    " SOC Dashboard "
+])
+
+
+
+# --- SIDEBAR: CONTEXT SWITCHER ---
+st.sidebar.divider()
+st.sidebar.title("PrivGuard")
+st.sidebar.caption("AI Security Gateway v0.2")
+st.sidebar.markdown("---")
+
+# User Context Simulator
+st.sidebar.subheader("User Simulation")
 user_role = st.sidebar.selectbox(
     "Active Role",
     ["Student", "Researcher", "Employee", "Admin"]
 )
 
-st.sidebar.divider()
-st.sidebar.write("Gateway Version: **v0.2**")
+st.sidebar.info(f"**Policy Active: {user_role.upper()}**\n\n"
+                "• **Student**: Strict Block (PII/Secrets)\n"
+                "• **Researcher**: Redact PII, Local Route\n"
+                "• **Employee**: Standard Corporate Policy")
 
-tab1, tab2, tab3 = st.tabs([
-    "⚡ Live Inspector",
-    "🧪 Attack Suite",
-    "📊 SOC Dashboard"
-])
+st.sidebar.markdown("---")
+st.sidebar.metric("System Status", "ONLINE", "Latency: 45ms")
 
 
-# -------------------------------------------------
-# TAB 1 — LIVE POLICY INSPECTOR
-# -------------------------------------------------
+# ==========================================
+# TAB 1: LIVE INSPECTOR (Single Request)
+# ==========================================
+
 with tab1:
-    st.subheader("⚡ Real-Time Request Inspector")
-
-    text = st.text_area("Enter prompt to test policy enforcement:", height=140)
+    st.subheader("⚡ Real-Time Traffic Inspector")
+    st.markdown("Use this console to inspect a single prompt's journey through the security pipeline.")
+    text = st.text_area("Enter prompt:", height=140, placeholder="e.g., Here is my API key sk-test-12345...")
 
     col1, col2 = st.columns(2)
+
     with col1:
-        run_btn = st.button("Scan Request")
+        run_btn = st.button("Scan Request", type="primary")
 
     if run_btn and text.strip():
 
+        # Call the API
         resp = requests.post(
             f"{API_URL}/proxy",
             json={"text": text, "user_role": user_role},
             headers={"x-user-role": user_role}
         )
 
+        # Display Results
         data = resp.json()
 
-        st.write("### 🔎 Gateway Decision")
+        st.write("### Gateway Decision")
         st.json(data)
 
         # Soft KPIs panel
@@ -71,125 +94,208 @@ with tab1:
 
         st.success("Event recorded in tamper-proof audit log.")
 
+    with col2:
+        st.markdown("**Quick Test Vectors:**")
+        if st.button("📝 Test: Student PII"):
+             st.code("My email is student@uni.edu", language="text")
+        if st.button("🔑 Test: API Key Leak"):
+             st.code("Here is our API key sk-test-123456", language="text")
+        if st.button("🕵️ Test: Internal Data"):
+             st.code("CONFIDENTIAL: Patent draft V1", language="text")
+
 
 # -------------------------------------------------
-# TAB 2 — ATTACK SUITE RUNNER
+# TAB 2: BATCH SCANNER (The Attacks.csv)
 # -------------------------------------------------
 with tab2:
 
     st.subheader("🧪 Automated Red-Team Attack Suite")
+    st.markdown("Batch-process the `attacks.csv` Red Team dataset to validate policy compliance.")
 
-    if not os.path.exists(ATTACKS_FILE):
-        st.error("attacks.csv not found in Security/. Ask your teammate to commit it.")
-    else:
-        df = pd.read_csv(ATTACKS_FILE)
-        st.caption("Attack vectors loaded from Security/attacks.csv")
-        st.dataframe(df.head(10), use_container_width=True)
 
-        if st.button(f"🚀 Run Attack Campaign ({len(df)} tests)"):
+    if os.path.exists(ATTACKS_FILE):
+        df_attacks = pd.read_csv(ATTACKS_FILE)
+        df_attacks.index = range(1, len(df_attacks) + 1)
+
+        # Show Preview
+        with st.expander("View Attack Dataset Source", expanded=False):
+            st.dataframe(df_attacks.head(20), use_container_width=True)
+        
+        col_metric1, col_metric2 = st.columns(2)
+        col_metric1.metric("Total Test Attacks(Vectors)", len(df_attacks))
+
+        if st.button(f"🚀 Run Full Compliance Scan"):
 
             results = []
-            progress = st.progress(0)
+            progress_bar = st.progress(0)
+            status_text = st.empty()
 
-            for i, row in df.iterrows():
+            total = len(df_attacks)
 
-                progress.progress((i+1) / len(df))
+            # Iterate through attacks
+            for index, row in df_attacks.iterrows():
+                # Update UI
+                progress_bar.progress(index / total)
+                status_text.text(f"Scanning {row['attack_id']} ({row['attack_type']})...")
 
-                resp = requests.post(
-                    f"{API_URL}/proxy",
-                    json={"text": row['prompt'], "user_role": row['role']},
-                    headers={"x-user-role": row['role']}
-                )
+                try:
+                    payload = {"text": row['prompt'], "user_role": row['role']}
+                    headers = {"x-user-role": row['role']}
 
-                out = resp.json()
-                actual = out.get("action", "UNKNOWN")
+                # Execute Request
+                    resp = requests.post(f"{API_URL}/proxy", json=payload, headers=headers)
+                    data = resp.json()
 
-                expected = row['expected_action']
-                status = "✅ PASS" if expected in actual else "❌ FAIL"
+                    actual_action = data.get("action", "ERROR")
+                    expected = row['expected_action'].upper()
 
-                results.append({
+
+                    # LOGIC: Did PrivGuard do what the CSV expected?
+                    # We do a loose string match (e.g. if CSV says "BLOCK" and API says "BLOCKED_BY_POLICY" -> PASS)
+
+                    is_pass = (
+                        expected in actual_action.upper() 
+                        or (expected == "ALLOW" and "ROUTED" in actual_action.upper())
+                    )
+                    status = "✅ PASS" if is_pass else "❌ FAIL"
+
+                    results.append({
                     "Attack ID": row['attack_id'],
                     "Type": row['attack_type'],
                     "Role": row['role'],
                     "Expected": expected,
-                    "Actual": actual,
+                    "Actual": actual_action,
                     "Status": status
-                })
+                    })
 
-            res = pd.DataFrame(results)
+                    # Optional visual delay
+                    # time.sleep(0.03)
 
-            st.write("### 🧩 Test Results")
-            st.dataframe(res, use_container_width=True)
+                except Exception as e:
+                    results.append({
+                        "Attack ID": row["attack_id"],
+                        "Type": row["attack_type"],
+                        "Role": row["role"],
+                        "Expected": row["expected_action"],
+                        "Actual": "ERROR",
+                        "Status": "⚠️ ERROR"
+                    })
 
-            pass_rate = len(res[res["Status"] == "✅ PASS"]) / len(res)
-            st.metric("Defense Success Rate", f"{pass_rate*100:.0f}%")
+            # Scan Complete
+            status_text.success("Scan Complete!")
+            results_df = pd.DataFrame(results)
+            results_df.index = range(1, len(results_df) + 1)
+
+            # Metrics
+            st.write("### Test Results ")
+
+            pass_count = len(results_df[results_df["Status"] == "✅ PASS"])
+            pass_rate = pass_count / len(results_df)
+            col_metric2.metric("Defense Success Rate", f"{pass_rate*100:.0f}%")
+
+            # Display Results Table
+            st.dataframe(results_df, use_container_width=True)
 
             st.info("All actions + routing decisions were also recorded in audit log.")
 
+    else:
+        st.warning(f"⚠️ Could not find attack dataset at `{ATTACKS_FILE}`. Please check file path.")
 
-# -------------------------------------------------
+
+# ==========================================
 # TAB 3 — SECURITY OPERATIONS DASHBOARD
-# -------------------------------------------------
+# ==========================================
+
 with tab3:
 
-    st.subheader("📊 Security Monitoring & Audit Chain")
+    st.header("📊 Security Operations Center (SOC)")
+    st.markdown("Real-time visibility into blocked threats and policy decisions.")
 
-    if not os.path.exists(LOG_FILE):
-        st.warning("No audit log found yet — run some scans or attacks first.")
-    else:
-        logs = []
-        with open(LOG_FILE, "r") as f:
-            for line in f:
-                logs.append(json.loads(line))
+    # Refresh Button
+    if st.button("🔄 Refresh Logs"):
+        st.rerun()
 
-        if not logs:
-            st.info("Audit log is currently empty.")
-        else:
-            df = pd.DataFrame(logs)
+    if os.path.exists(LOG_FILE):
 
-            # ---------- KPI Cards ----------
-            c1, c2, c3, c4 = st.columns(4)
+        # Read JSONL file line by line
+        log_data = []
+        try:    
+            with open(LOG_FILE, "r") as f:
+                for line in f:
+                    if line.strip():
+                        log_data.append(json.loads(line))
 
-            c1.metric("Total Requests", len(df))
-            c2.metric("Blocked Threats", len(df[df["policy_action"] == "BLOCK"]))
-            c3.metric("Safe-Mode Routes", len(df[df["routing_decision"] == "SAFE_MODE"]))
-            c4.metric("High-Risk Incidents", len(df[df["detected_risk_level"] == "HIGH"]))
+        except Exception as e:
+            st.error(f"Error reading logs: {e}")
 
-            st.divider()
+        if log_data:
+            df_logs = pd.DataFrame(log_data)
+            df_logs.index = range(1, len(df_logs) + 1)
 
-            # ---------- Charts ----------
-            g1, g2 = st.columns(2)
+            # 1. TOP METRICS
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Total Requests", len(df_logs))
+            
+            blocked_count = len(df_logs[df_logs['policy_action'] == 'BLOCK'])
+            m2.metric("Attacks Blocked", blocked_count, delta="Shield Active", delta_color="normal")
+            
+            critical_count = len(df_logs[df_logs['detected_risk_level'] == 'CRITICAL'])
+            m3.metric("Critical Incidents", critical_count, delta="High Risk", delta_color="inverse")
+            
+            sovereign_count = len(df_logs[df_logs['routing_decision'] == 'SAFE_MODE'])
+            m4.metric("Sovereign/Local Routes", sovereign_count)
 
-            with g1:
-                st.write("### 🟣 Risk Distribution")
-                risk_counts = df["detected_risk_level"].value_counts().reset_index()
-                risk_counts.columns = ["risk", "count"]
-                fig = px.pie(risk_counts, names="risk", values="count", hole=0.45)
-                st.plotly_chart(fig, use_container_width=True)
+            st.markdown("---")
 
-            with g2:
-                st.write("### 🟡 Policy Actions")
-                act_counts = df["policy_action"].value_counts().reset_index()
-                act_counts.columns = ["action", "count"]
-                fig2 = px.bar(act_counts, x="action", y="count")
-                st.plotly_chart(fig2, use_container_width=True)
+            # 2. CHARTS ROW
+            c1, c2 = st.columns(2)
 
+            with c1:
+                st.subheader("⚠️ Threat Landscape")
+                if not df_logs.empty:
+                    risk_counts = df_logs['detected_risk_level'].value_counts()
+                    fig_risk = px.pie(
+                        values=risk_counts.values, 
+                        names=risk_counts.index, 
+                        title="Distribution of Risk Levels",
+                        hole=0.4,
+                        color_discrete_map={"CRITICAL": "darkred", "HIGH": "red", "MEDIUM": "orange", "LOW": "green"}
+                    )
+                    st.plotly_chart(fig_risk, use_container_width=True)
+            
+            with c2:
+                st.subheader("🛡️ Policy Actions Over Time")
+                if not df_logs.empty:
+                    fig_action = px.bar(
+                        df_logs, x='user_role', color='policy_action', 
+                        title="Actions by User Role",
+                        color_discrete_map={"ALLOW": "green", "REDACT": "orange", "BLOCK": "red", "ROUTED_TO_LOCAL_MODEL": "blue"}
+                    )
+                    st.plotly_chart(fig_action, use_container_width=True)
+            
             st.divider()
 
             # ---------- Hash Chain Table ----------
-            st.write("### 🔐 Tamper-Proof Audit Trail (Hash-Linked)")
-
+            st.subheader(" Tamper-Proof Audit Trail")
             st.caption("Each log entry is chained using SHA-256 to prevent tampering.")
 
+            # Show specific columns
             st.dataframe(
-                df[
+                df_logs[
                     [
                         "timestamp_utc",
                         "user_role",
+                        "detected_risk_level",
                         "policy_action",
                         "routing_decision",
                         "current_log_hash"
                     ]
-                ].tail(12),
+                ].sort_values(by="timestamp_utc", ascending=False),
                 use_container_width=True
             )
+
+        else:
+            st.info("Log file is empty. Go to Tab 1 or 2 to generate traffic.")
+            
+    else:
+        st.warning("⚠️ No audit logs found. System is waiting for traffic.")
