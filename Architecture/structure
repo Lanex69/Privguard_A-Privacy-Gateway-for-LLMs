@@ -1,25 +1,30 @@
-privguard/
- ├── app/
- │   ├── main.py
- │   ├── detector.py
- │   ├── redactor.py
- │   ├── llm_client/
- │   │   ├── azure_openai.py
- │   │   ├── openai.py
- │   │   └── base.py
- │   ├── policy_bridge.py   (calls teammate engine later)
- │   └── logger_hook.py
- ├── configs/
- │   └── settings.example.json
- ├── tests/
- └── README.md
-
-
-'''
-Eventually move detectors into pipeline folders:
-redaction_pipeline/
-policy/
-risk/
-logging/
-providers/
-'''
+PrivGuard/
+│
+├── app/                          # Core API gateway (FastAPI)
+│   ├── main.py                   # /proxy, /analyze, /redact endpoints
+│   ├── detector.py               # Presidio + custom pattern detection
+│   ├── policy.py                 # RBAC + risk-aware policy engine
+│   ├── redactor.py               # Entity-based redaction logic
+│   └── content_safety.py         # Azure AI Content Safety integration
+│
+├── frontend/                     # Streamlit demo & SOC dashboard
+│   ├── app.py                    # Live Inspector, Red Team Scanner, SOC UI
+│
+├── Security/                     # Security configs, policies & logs
+│   ├── __init__.py
+│   ├── patterns.json             # Sensitive data & attack detection rules
+│   ├── policy.json               # Risk policies, RBAC, routing rules
+│   ├── audit_policy.json         # Audit logging & integrity policy
+│   ├── audit_logger.py           # Hash-chained, append-only audit logger
+│   ├── audit_log.jsonl            # Generated audit events (runtime)
+│   └── attacks.csv               # Red-team attack simulation dataset
+│
+├── Architecture/                 # Documentation assets
+│   └── architect_priv1.png       # System architecture diagram
+│
+├── run_privguard.bat              # One-click startup script (Windows)
+│
+├── requirements.txt               # Python dependencies
+├── README.md                      # Project documentation
+├── .env                           # Environment variables (not committed)
+└── .gitignore

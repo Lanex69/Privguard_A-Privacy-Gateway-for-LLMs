@@ -56,7 +56,7 @@ PrivGuard combines **Microsoft Presidio** with custom regular-expression rules t
 * **Enterprise Data**: Confidential markers, financial identifiers
 * **Abuse Patterns**: Prompt injection and data exfiltration attempts
 
-Detection rules are defined in `security/patterns.json` and loaded dynamically by the detection engine.
+Detection rules are defined in `Security/patterns.json` and loaded dynamically by the detection engine.
 
 ---
 
@@ -66,7 +66,7 @@ Detected entities are evaluated using a **risk-aware, role-based policy engine**
 
 Policies are:
 
-* declaratively defined in `security/policy.json`
+* declaratively defined in `Security/policy.json`
 * enforced centrally by a Python-based policy engine
 * configurable without backend code changes
 

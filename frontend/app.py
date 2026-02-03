@@ -51,7 +51,8 @@ user_role = st.sidebar.selectbox(
 st.sidebar.info(f"**Policy Active: {user_role.upper()}**\n\n"
                 "• **Student**: Strict Block (PII/Secrets)\n"
                 "• **Researcher**: Redact PII, Local Route\n"
-                "• **Employee**: Standard Corporate Policy")
+                "• **Employee**: Standard Corporate Policy\n"
+                "• **Admin**: High-Risk Allowed, Enforced Local Processing")
 
 st.sidebar.markdown("---")
 st.sidebar.metric("System Status", "ONLINE", "Latency: 45ms")
