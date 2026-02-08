@@ -1,4 +1,6 @@
-# Python
+# ==========================
+# PYTHON & BACKEND
+# ==========================
 __pycache__/
 *.py[cod]
 *$py.class
@@ -8,20 +10,47 @@ venv/
 env/
 .venv/
 
-# Environment Variables & Secrets
+# Environment Variables & Secrets (CRITICAL)
 .env
 .env.local
 .env.*
+*.pem
+*.key
 
 # Logs & Audit Files
 *.log
-*.jsonl
+# Keep audit_log.jsonl if you want a sample history, otherwise ignore it
+# *.jsonl 
 privguard_audit.jsonl
 
-# IDE Settings
+# ==========================
+# NEXT.JS & FRONTEND
+# ==========================
+# Ignore the massive dependencies folder
+frontend-next/node_modules/
+
+# Next.js build output
+frontend-next/.next/
+frontend-next/out/
+frontend-next/build/
+
+# v0.dev runtime files (Clean up from the zip download)
+frontend-next/__v0_runtime_loader.js
+frontend-next/__v0_devtools.tsx
+frontend-next/__v0_jsx-dev-runtime.ts
+frontend-next/instrumentation-client.js
+frontend-next/instrumentation-client.ts
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================
+# IDE & SYSTEM
+# ==========================
 .vscode/
 .idea/
-
-# OS Files
 .DS_Store
 Thumbs.db
